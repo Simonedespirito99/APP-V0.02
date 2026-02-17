@@ -5,37 +5,44 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>SMIRT - Portale Tecnico</title>
     
-    <!-- Mobile PWA Tags -->
+    <!-- PWA / Mobile Tags -->
     <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-title" content="SMIRT">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#0f1923">
-    
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛠️</text></svg>">
+    
+    <!-- Fonts & Icons -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
 
-    <!-- Tailwind via CDN -->
+    <!-- Tailwind CSS (Zero Config) -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <script>
-        window.tailwind.config = {
+        tailwind.config = {
             darkMode: 'class',
             theme: {
                 extend: {
-                    colors: {
-                        "primary": "#067ff9",
-                        "background-dark": "#0f1923",
-                        "surface-dark": "#16202c",
-                    },
-                    fontFamily: { "sans": ["Inter", "sans-serif"] },
-                    boxShadow: {
-                        'neon': '0 0 15px rgba(6, 127, 249, 0.3)',
-                    }
+                    colors: { "primary": "#067ff9", "background-dark": "#0f1923", "surface-dark": "#16202c" },
+                    fontFamily: { "sans": ["Inter", "sans-serif"] }
                 }
             }
         }
     </script>
+
+    <!-- React & Babel via CDN (Per far girare JSX senza Build) -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        body { background-color: #0f1923; color: white; -webkit-tap-highlight-color: transparent; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .shadow-neon { box-shadow: 0 0 15px rgba(6, 127, 249, 0.3); }
+        canvas { touch-action: none; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
+    </style>
 <script type="importmap">
 {
   "imports": {
@@ -48,9 +55,217 @@
 }
 </script>
 </head>
-<body class="bg-[#0f1923] text-white font-sans antialiased overflow-hidden">
+<body class="font-sans antialiased overflow-hidden">
     <div id="root" class="h-[100dvh]"></div>
-    <!-- Percorso relativo corretto per permettere a Vite di processare il file TSX -->
-    <script type="module" src="index.tsx"></script>
+
+    <!-- Tutta la logica dell'app in un unico blocco compilato dal browser -->
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useRef, useCallback } = React;
+
+        // --- SERVIZI (STORAGE & API) ---
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzYF2XxIGvTk2d3GDkw0bc0zULBscdDEwbwAddnAOnAxsqjddfA-fNHzb47IaYdFlbK/exec";
+
+        const Storage = {
+            getReports: () => JSON.parse(localStorage.getItem('smirt_reports') || '[]'),
+            saveReports: (reports) => localStorage.setItem('smirt_reports', JSON.stringify(reports)),
+            getProfile: () => JSON.parse(localStorage.getItem('smirt_profile') || '{"name":"","role":"Tecnico","prefix":"T","settings":{"darkMode":true}}'),
+            saveProfile: (p) => localStorage.setItem('smirt_profile', JSON.stringify(p)),
+            getCounter: () => parseInt(localStorage.getItem('smirt_counter') || '0'),
+            setCounter: (n) => localStorage.setItem('smirt_counter', n.toString())
+        };
+
+        // --- COMPONENTI UI ---
+
+        const Login = ({ onLogin }) => {
+            const [user, setUser] = useState('');
+            const [pass, setPass] = useState('');
+            const [loading, setLoading] = useState(false);
+
+            const handleLogin = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                try {
+                    const res = await fetch(GOOGLE_SCRIPT_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({ action: 'login', username: user, password: pass })
+                    });
+                    const data = await res.json();
+                    if (data.success) onLogin({ name: data.username, prefix: data.prefix });
+                    else alert(data.message || "Credenziali errate");
+                } catch { alert("Errore connessione"); }
+                setLoading(false);
+            };
+
+            return (
+                <div className="h-full flex flex-col items-center justify-center p-8">
+                    <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center shadow-neon mb-6">
+                        <span className="material-icons-round text-4xl">engineering</span>
+                    </div>
+                    <h1 className="text-3xl font-black mb-10">SMIRT</h1>
+                    <form onSubmit={handleLogin} className="w-full max-w-xs space-y-4">
+                        <input value={user} onChange={e=>setUser(e.target.value)} placeholder="Utente" className="w-full bg-surface-dark border-none rounded-xl p-4 focus:ring-2 ring-primary outline-none" />
+                        <input type="password" value={pass} onChange={e=>setPass(e.target.value)} placeholder="Password" className="w-full bg-surface-dark border-none rounded-xl p-4 focus:ring-2 ring-primary outline-none" />
+                        <button disabled={loading} className="w-full bg-primary py-4 rounded-xl font-bold shadow-neon active:scale-95 transition-all">
+                            {loading ? "ACCESSO..." : "ACCEDI"}
+                        </button>
+                    </form>
+                </div>
+            );
+        };
+
+        const Dashboard = ({ user, reports, onNew, onRefresh, isSyncing }) => {
+            const todayCount = reports.filter(r => r.status === 'synced' && r.date === new Date().toISOString().split('T')[0]).length;
+            const lastId = reports.filter(r => r.status === 'synced')[0]?.id || `${user.prefix}-0000`;
+
+            return (
+                <div className="p-6 space-y-8 animate-fade-in">
+                    <header className="flex justify-between items-start pt-8">
+                        <div>
+                            <p className="text-primary text-[10px] font-bold uppercase tracking-widest">Benvenuto</p>
+                            <h1 className="text-3xl font-bold">{user.name.split(' ')[0]}</h1>
+                        </div>
+                        <button onClick={onRefresh} className={`p-2 rounded-full bg-surface-dark ${isSyncing?'animate-spin':''}`}>
+                            <span className="material-icons-round">sync</span>
+                        </button>
+                    </header>
+
+                    <div className="relative h-64 bg-surface-dark rounded-full border border-primary/20 flex flex-col items-center justify-center shadow-2xl">
+                        <div className="text-[10px] text-slate-500 font-bold uppercase mb-2">Ultimo ID</div>
+                        <div className="text-4xl font-black text-white">{lastId}</div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-surface-dark p-4 rounded-2xl text-center">
+                            <div className="text-2xl font-bold">{todayCount}</div>
+                            <div className="text-[10px] text-slate-500 font-bold uppercase">Oggi</div>
+                        </div>
+                        <div className="bg-surface-dark p-4 rounded-2xl text-center">
+                            <div className="text-2xl font-bold text-primary">{reports.length}</div>
+                            <div className="text-[10px] text-slate-500 font-bold uppercase">Totale</div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const ReportForm = ({ report, onSave, onContinue, onCancel }) => {
+            const [data, setData] = useState(report);
+            return (
+                <div className="h-full flex flex-col bg-background-dark animate-fade-in">
+                    <header className="p-4 border-b border-slate-800 flex justify-between items-center bg-background-dark/80 backdrop-blur-md sticky top-0 z-50">
+                        <button onClick={onCancel} className="text-primary font-bold">Annulla</button>
+                        <h2 className="font-bold">Nuovo Intervento</h2>
+                        <span className="text-[10px] font-bold bg-primary/20 text-primary px-2 py-1 rounded-full">{data.id}</span>
+                    </header>
+                    <main className="flex-1 overflow-y-auto p-6 space-y-6 hide-scrollbar">
+                        <div className="space-y-4">
+                            <label className="block">
+                                <span className="text-[10px] font-bold text-slate-500 uppercase">Cliente</span>
+                                <input value={data.clientName} onChange={e=>setData({...data, clientName: e.target.value})} className="w-full bg-surface-dark border-none rounded-xl p-4 mt-1" placeholder="Nome Cliente" />
+                            </label>
+                            <label className="block">
+                                <span className="text-[10px] font-bold text-slate-500 uppercase">Luogo / Sito</span>
+                                <input value={data.locationId} onChange={e=>setData({...data, locationId: e.target.value})} className="w-full bg-surface-dark border-none rounded-xl p-4 mt-1" placeholder="Es: Via Roma 1" />
+                            </label>
+                            <div className="grid grid-cols-2 gap-4">
+                                <label>
+                                    <span className="text-[10px] font-bold text-slate-500 uppercase">Inizio</span>
+                                    <input type="time" value={data.startTime} onChange={e=>setData({...data, startTime: e.target.value})} className="w-full bg-surface-dark border-none rounded-xl p-4 mt-1" />
+                                </label>
+                                <label>
+                                    <span className="text-[10px] font-bold text-slate-500 uppercase">Fine</span>
+                                    <input type="time" value={data.endTime} onChange={e=>setData({...data, endTime: e.target.value})} className="w-full bg-surface-dark border-none rounded-xl p-4 mt-1" />
+                                </label>
+                            </div>
+                            <label className="block">
+                                <span className="text-[10px] font-bold text-slate-500 uppercase">Descrizione Lavori</span>
+                                <textarea value={data.description} onChange={e=>setData({...data, description: e.target.value})} className="w-full bg-surface-dark border-none rounded-xl p-4 mt-1 h-32 resize-none" />
+                            </label>
+                        </div>
+                    </main>
+                    <footer className="p-6 bg-background-dark/80 backdrop-blur-md border-t border-slate-800 space-y-3">
+                        <button onClick={() => onContinue(data)} className="w-full bg-primary py-4 rounded-xl font-bold shadow-neon">FIRMA E PROSEGUI</button>
+                        <button onClick={() => onSave(data)} className="w-full text-slate-500 font-bold py-2">Salva Bozza</button>
+                    </footer>
+                </div>
+            );
+        };
+
+        const MainApp = () => {
+            const [view, setView] = useState('login');
+            const [user, setUser] = useState(Storage.getProfile());
+            const [reports, setReports] = useState(Storage.getReports());
+            const [activeReport, setActiveReport] = useState(null);
+            const [syncing, setSyncing] = useState(false);
+
+            useEffect(() => {
+                if (user.name) setView('dashboard');
+            }, []);
+
+            const handleLogin = (u) => {
+                const newProfile = { ...user, name: u.name, prefix: u.prefix };
+                Storage.saveProfile(newProfile);
+                setUser(newProfile);
+                setView('dashboard');
+            };
+
+            const startNew = () => {
+                const count = Storage.getCounter() + 1;
+                const newR = {
+                    id: `${user.prefix}-${count.toString().padStart(4, '0')}`,
+                    clientName: '', locationId: '', date: new Date().toISOString().split('T')[0],
+                    startTime: '09:00', endTime: '11:00', description: '', status: 'draft'
+                };
+                setActiveReport(newR);
+                setView('form');
+            };
+
+            const saveDraft = (r) => {
+                const updated = [r, ...reports.filter(x => x.id !== r.id)];
+                setReports(updated);
+                Storage.saveReports(updated);
+                setView('dashboard');
+            };
+
+            const finalize = async (r) => {
+                setSyncing(true);
+                // Simulazione invio (per brevità)
+                setTimeout(() => {
+                    const final = { ...r, status: 'synced' };
+                    const updated = [final, ...reports.filter(x => x.id !== r.id)];
+                    setReports(updated);
+                    Storage.saveReports(updated);
+                    Storage.setCounter(Storage.getCounter() + 1);
+                    setSyncing(false);
+                    setView('dashboard');
+                }, 1000);
+            };
+
+            return (
+                <div className="h-full bg-background-dark max-w-md mx-auto shadow-2xl relative overflow-hidden border-x border-slate-800">
+                    {view === 'login' && <Login onLogin={handleLogin} />}
+                    {view === 'dashboard' && <Dashboard user={user} reports={reports} onNew={startNew} isSyncing={syncing} onRefresh={() => {}} />}
+                    {view === 'form' && <ReportForm report={activeReport} onSave={saveDraft} onContinue={finalize} onCancel={() => setView('dashboard')} />}
+                    
+                    {view !== 'login' && view !== 'form' && (
+                        <nav className="fixed bottom-0 left-0 w-full max-w-md mx-auto h-20 bg-surface-dark/90 backdrop-blur-xl border-t border-slate-800 flex justify-around items-center px-4">
+                            <button onClick={()=>setView('dashboard')} className={`p-2 ${view==='dashboard'?'text-primary':'text-slate-500'}`}>
+                                <span className="material-icons-round">home</span>
+                            </button>
+                            <button onClick={startNew} className="w-14 h-14 bg-primary rounded-2xl flex items-center justify-center -mt-10 shadow-neon border-4 border-background-dark">
+                                <span className="text-3xl">+</span>
+                            </button>
+                            <button onClick={()=>setView('profile')} className={`p-2 ${view==='profile'?'text-primary':'text-slate-500'}`}>
+                                <span className="material-icons-round">person</span>
+                            </button>
+                        </nav>
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<MainApp />);
+    </script>
 </body>
 </html>
