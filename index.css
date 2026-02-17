@@ -1,0 +1,23 @@
+/* SMIRT Global Styles */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Prevenzione flickering durante il caricamento di React */
+#root:empty {
+  background-color: #0f1923;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
